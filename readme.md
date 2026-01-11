@@ -147,7 +147,20 @@ Subtitle Mike supports all OpenAI Whisper model sizes. For **NVIDIA RTX 5080** u
 
 * **Video:** `.mp4`, `.mkv`, `.avi`, `.mov`
 * **Audio:** `.wav`, `.mp3`
+---
 
+## Support & Contributions
+
+This project is primarily maintained for personal use and is shared "as-is." Due to time constraints, the **Issues** section is disabled. 
+
+However, contributions from the community are welcome! If you encounter a bug or have an improvement in mind:
+1. **Fork** the repository.
+2. Implement your fix or feature.
+3. Submit a **Pull Request** (PR).
+
+I will review PRs when time permits. Thank you for understanding!
+
+---
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
