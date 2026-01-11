@@ -1,0 +1,21 @@
+services:
+  subtitle-mike:
+    image: mikedaspike/subtitle-mike:latest
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    env_file:
+      - .env
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONWARNINGS=ignore
+    volumes:
+      - /path/to/your/media:/data
+      - ./models/huggingface:/root/.cache/huggingface
+      - ./models/whisper:/root/.cache/whisper
+      - ./models/torch:/root/.cache/torch
