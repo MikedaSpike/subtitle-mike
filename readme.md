@@ -68,8 +68,9 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    env_file:
+      - .env
     environment:
-      - HF_TOKEN=${HF_TOKEN}
       - NVIDIA_VISIBLE_DEVICES=all
       - PYTHONWARNINGS=ignore
     volumes:
