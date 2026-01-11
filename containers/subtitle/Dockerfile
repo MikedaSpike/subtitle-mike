@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir \
     transformers \
     sentencepiece \
     pysrt \
-    argostranslate \
+    deep-translator \
     requests
 
 # Stap 5: Kopieer je code (voor productie-gebruik)
