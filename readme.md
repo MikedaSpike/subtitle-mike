@@ -1,5 +1,10 @@
 # Subtitle Mike (Transcribe to SRT)
 
+![Docker Pulls](https://img.shields.io/docker/pulls/mikedaspike/subtitle-mike?style=flat-square&color=blue)
+![Docker Image Size](https://img.shields.io/docker/image-size/mikedaspike/subtitle-mike/latest?style=flat-square)
+![GitHub License](https://img.shields.io/github/license/MikedaSpike/subtitle-mike?style=flat-square)
+![GitHub last commit](https://img.shields.io/github/last-commit/MikedaSpike/subtitle-mike?style=flat-square)
+
 **Subtitle Mike** is a professional-grade, AI-powered transcription tool that converts video and audio files into perfectly formatted SRT subtitles. By leveraging **WhisperX** for word-level alignment and **Pyannote** for speaker identification, it delivers "streaming-ready" results optimized for readability.
 
 ## Hardware & Performance
