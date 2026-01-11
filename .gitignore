@@ -1,0 +1,22 @@
+# Negeer Python cache
+__pycache__/
+*.pyc
+
+# Negeer lokale modellen (gebruikers moeten deze zelf mounten via volumes)
+models/
+.cache/
+
+# Negeer media en logs
+*.mp4
+*.mkv
+*.srt
+*.json
+*.log
+
+# Negeer Git en Docker config
+.git/
+.env
+docker-compose.yml
+
+# Negeer eigen run bestand
+RunMeToSubscribe.cmd
