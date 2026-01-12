@@ -6,7 +6,6 @@ from contextlib import contextmanager
 
 @contextmanager
 def suppress_output():
-    """Stuurt stdout en stderr tijdelijk naar /dev/null om C++ warnings te verbergen."""
     with open(os.devnull, "w") as devnull:
         old_stdout = sys.stdout
         old_stderr = sys.stderr
