@@ -1,0 +1,45 @@
+services:
+  subtitle-mike:
+    image: mikedaspike/subtitle-mike:latest
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    env_file:
+      - .env
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONWARNINGS=ignore
+      - TRANSLATE_TO_LANG=nl # Examples: 'nl' for Dutch, 'fr' for French, 'de' for German
+    volumes:
+      - /path/to/your/media:/data
+      - ./models/huggingface:/root/.cache/huggingface
+      - ./models/whisper:/root/.cache/whisper
+      - ./models/torch:/root/.cache/torch
+    command: ["sh", "-c", "touch /root/.hushlogin; tail -f /dev/null"]
+    depends_on:
+      translator:
+        condition: service_healthy
+  
+  translator:
+    image: libretranslate/libretranslate:latest
+    container_name: translation-engine
+    ports:
+      - "5000:5000"
+    environment:
+      # --- ADD LANGUAGES TO BE LOADED BY THE ENGINE ---
+      # Use ISO codes (comma separated). Always include 'en'.
+      - LT_LOAD_ONLY=en,nl 
+      - LT_UPDATE_MODELS=true
+    restart: always
+    healthcheck:
+     test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000/health\").read()' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./models/libretranslate:/home/libretranslate/.local
