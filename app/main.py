@@ -1,7 +1,7 @@
 import os, sys, re, json, warnings, logging, argparse
 from pathlib import Path
 from pipeline.subtitle import Subtitle
-
+from pipeline.translator import SubtitleTranslator
 from contextlib import contextmanager
 
 @contextmanager
@@ -66,6 +66,8 @@ def collect_files(input_path, recursive=False):
 
 def main():
     start_time = time.time()
+    target_lang = os.getenv("TRANSLATE_TO_LANG", "nl")
+    
     # --- ARGUMENTS ---
     ap = argparse.ArgumentParser(description="Auto-Subtitle Generator with Batch Support")
     ap.add_argument("--input", required=True, help="Input file or directory")
@@ -88,6 +90,10 @@ def main():
     ap.add_argument("--min_duration", type=float, default=1.0, help="Min duration (sec)")
     ap.add_argument("--max_gap", type=float, default=0.5, help="Merge gap (sec)")
     
+    # Translation params
+    ap.add_argument("--translate", action="store_true", help="Enable translation to Dutch")
+    ap.add_argument("--translator_url", default=os.getenv("LIBRETRANSLATE_URL", "http://translator:5000"), help="URL of LibreTranslate")
+
     ap.add_argument("--debug", action="store_true", help="Save debug JSON")
     
     args = ap.parse_args()
@@ -115,6 +121,7 @@ def main():
         return
 
     processed_count = 0
+    translated_count = 0
     skipped_count = 0
     error_count = 0
 
@@ -166,6 +173,31 @@ def main():
             )
             processor.process_and_save(srt_path, blacklist=blacklist_list)
 
+            # 5. OPTIONAL: Translate and Generate SRT
+            if args.translate:
+                translator = SubtitleTranslator() 
+                
+                logger.info(f"   -> Translating to {translator.target_lang}...")
+                
+                import copy
+                translated_segments = copy.deepcopy(result['segments'])
+                
+                translated_segments = translator.translate_segments(translated_segments)
+                
+                # Bepaal pad voor vertaalde SRT (gebruik translator.target_lang i.p.v. args.translate_lang)
+                nl_srt_path = srt_path.with_name(f"{p.stem}.{translator.target_lang}.srt")
+                
+                logger.info(f"   -> Generating Translated SRT ({translator.target_lang})...")
+                nl_processor = Subtitle(
+                    translated_segments,
+                    max_cpl=args.max_cpl,
+                    min_duration=args.min_duration,
+                    max_gap=args.max_gap
+                )
+                nl_processor.process_and_save(nl_srt_path, blacklist=blacklist_list)
+                translated_count += 1
+                logger.info(f"   -> Saved translated SRT ({translator.target_lang})")
+
             if args.debug:
                 debug_path = srt_path.with_suffix(".debug.json")
                 with open(debug_path, "w") as jf: json.dump(result, jf, indent=2)
@@ -188,6 +220,8 @@ def main():
         logger.info("-" * 30)
         logger.info("FINISH REPORT")
         logger.info(f"Total files found: {len(files_to_process)}")
+        if args.translate:
+            logger.info(f"Translated  ({target_lang}): {translated_count}")
         logger.info(f"Successfully processed: {processed_count}")
         logger.info(f"Skipped (already exists): {skipped_count}")
         
