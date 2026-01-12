@@ -1,4 +1,4 @@
-# Subtitle Mike (Transcribe to SRT)
+# Subtitle Mike (Transcribe & Optional Translation)
 
 ![Docker Pulls](https://img.shields.io/docker/pulls/mikedaspike/subtitle-mike?style=flat-square&color=blue)
 ![Docker Image Size](https://img.shields.io/docker/image-size/mikedaspike/subtitle-mike/latest?style=flat-square)
@@ -26,6 +26,7 @@ This tool is built for speed and requires an **NVIDIA GPU**.
 * **Batch Processing:** Handles single files or entire nested folder structures recursively.
 * **Efficient Skip Logic:** Automatically skips files that already have an existing subtitle to save time.
 * **Model Caching:** Supports local caching of AI models to prevent re-downloading on every run.
+* **Optional Translation:** Generate a second SRT file in your target language (e.g., Dutch) using LibreTranslate.
 
 ---
 
@@ -87,7 +88,36 @@ services:
 
 ```
 
-### 3. Usage Examples
+---
+
+## Optional: Automated Translation
+
+Subtitle Mike supports automated translation into a second language using **LibreTranslate**.
+
+### 1. Setup & Configuration
+
+* **Use the translation example:** See `docker-compose.translate.example.yml`.
+* **Language configuration:** Set your target language in the `environment` section of the compose file:
+```yaml
+- TRANSLATE_TO_LANG=nl  # Target language for translation
+
+```
+
+
+* **Engine configuration:** Ensure the `translator` service loads your required languages (e.g., `LT_LOAD_ONLY=en,nl`).
+
+### 2. Translation CLI Arguments
+
+When translation is enabled, you can use the following additional arguments:
+
+| Argument | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--translate` | Flag | `False` | **Required** to enable translation. Generates a second SRT. |
+| `--translator_url` | URL | `http://translator:5000` | The endpoint of your LibreTranslate instance. |
+
+---
+
+## 3. Usage Examples
 
 **Process a single file:**
 
@@ -96,10 +126,18 @@ docker compose run --rm subtitle-mike python main.py --input "/data/MyVideo.mp4"
 
 ```
 
-**Process an entire folder recursively:**
+**Process a single file + Translate:**
 
 ```bash
-docker compose run --rm subtitle-mike python main.py --input "/data/TV_Shows" --recursive
+# This generates both MyVideo.en.srt and MyVideo.nl.srt
+docker compose run --rm subtitle-mike python main.py --input "/data/MyVideo.mp4" --translate
+
+```
+
+**Process an entire folder recursively with translation:**
+
+```bash
+docker compose run --rm subtitle-mike python main.py --input "/data/TV_Shows" --recursive --translate
 
 ```
 
@@ -153,13 +191,15 @@ Subtitle Mike supports all OpenAI Whisper model sizes. For **NVIDIA RTX 5080** u
 
 * **Video:** `.mp4`, `.mkv`, `.avi`, `.mov`
 * **Audio:** `.wav`, `.mp3`
+
 ---
 
 ## Support & Contributions
 
-This project is primarily maintained for personal use and is shared "as-is." Due to time constraints, the **Issues** section is disabled. 
+This project is primarily maintained for personal use and is shared "as-is." Due to time constraints, the **Issues** section is disabled.
 
 However, contributions from the community are welcome! If you encounter a bug or have an improvement in mind:
+
 1. **Fork** the repository.
 2. Implement your fix or feature.
 3. Submit a **Pull Request** (PR).
@@ -167,6 +207,7 @@ However, contributions from the community are welcome! If you encounter a bug or
 I will review PRs when time permits. Thank you for understanding!
 
 ---
+
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
