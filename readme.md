@@ -4,6 +4,7 @@
 ![Docker Image Size](https://img.shields.io/docker/image-size/mikedaspike/subtitle-mike/latest?style=flat-square)
 ![GitHub License](https://img.shields.io/github/license/MikedaSpike/subtitle-mike?style=flat-square)
 ![GitHub last commit](https://img.shields.io/github/last-commit/MikedaSpike/subtitle-mike?style=flat-square)
+
 Subtitle Mike is a professional‑grade, AI‑powered transcription tool that converts video and audio files into clean, readable SRT subtitles.  
 It uses WhisperX for word‑level alignment and Pyannote for speaker identification, producing streaming‑ready results optimized for readability and timing accuracy.
 
