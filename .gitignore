@@ -17,6 +17,8 @@ models/
 .git/
 .env
 docker-compose.yml
+docker-compose.example.yml
 
-# Negeer eigen run bestand
-RunMeToSubscribe.cmd
+# Temporary scripts
+RunMeToSubscribe_*.cmd
+
