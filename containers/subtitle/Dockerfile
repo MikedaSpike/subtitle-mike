@@ -30,7 +30,9 @@ RUN pip install --no-cache-dir \
     sentencepiece \
     pysrt \
     deep-translator \
-    requests
+    requests\
+    librosa
+
 
 # Stap 5: Kopieer je code (voor productie-gebruik)
 COPY ./app /app
