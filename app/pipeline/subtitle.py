@@ -1,103 +1,220 @@
 import re
-from utils.timing import format_srt_time
+import math
 
-class Subtitle:
-    def __init__(self, segments, max_cpl=42, min_duration=1.0, max_gap=0.5):
+
+class SubtitleEngine:
+    def __init__(
+        self,
+        segments,
+        max_cpl=42,
+        max_lines=2,
+        min_duration=1.4,
+        max_duration=7.0,
+        min_cps=12.0,
+        max_cps=14.0,
+        max_gap=0.4,
+    ):
         self.segments = segments
+
         self.max_cpl = max_cpl
+        self.max_lines = max_lines
         self.min_duration = min_duration
+        self.max_duration = max_duration
+        self.min_cps = min_cps
+        self.max_cps = max_cps
         self.max_gap = max_gap
 
-    def clean_text(self, text):
-        text = re.sub(r'\s+', ' ', text).strip()
-        text = re.sub(r'\[SPEAKER_\d+\]', '', text)
-        text = text.lstrip("- ")
-        return text
+    # ============================================================
+    # PUBLIC
+    # ============================================================
 
-    def wrap_text(self, text):
-        """Splits text into balanced lines."""
-        text = text.strip()
-        if len(text) <= self.max_cpl or "\n" in text:
-            return text
+    def process_and_save(self, path, blacklist):
+        sentences = self._extract_sentences()
+        cues = self._sentences_to_cues(sentences)
+        cues = self._enforce_timing(cues)
+        self._write_srt(path, cues, blacklist)
 
-        words = text.split()
-        if len(words) <= 1:
-            return text
+    # ============================================================
+    # SENTENCE EXTRACTION (NO LOSS POSSIBLE)
+    # ============================================================
 
-        mid_point = len(text) / 2
-        best_split_point = -1
-        min_diff = float('inf')
+    def _extract_sentences(self):
+        sentences = []
 
-        # Find the split point closest to the middle
-        current_len = 0
-        for i in range(len(words) - 1):
-            line1 = " ".join(words[:i+1])
-            line2 = " ".join(words[i+1:])
-            
-            if len(line1) <= self.max_cpl and len(line2) <= self.max_cpl:
-                diff = abs(len(line1) - mid_point)
-                if diff < min_diff:
-                    min_diff = diff
-                    best_split_point = i + 1
-
-        if best_split_point != -1:
-            line1 = " ".join(words[:best_split_point])
-            line2 = " ".join(words[best_split_point:])
-            return f"{line1}\n{line2}"
-        
-        # Fallback if balancing fails
-        return text
-
-    def process_and_save(self, output_path, blacklist):
-        # 1. Clean and filter
-        raw_segments = []
         for seg in self.segments:
-            txt = self.clean_text(seg['text'])
-            if txt and not any(b.lower() in txt.lower() for b in blacklist):
-                raw_segments.append({
-                    'start': seg['start'],
-                    'end': seg['end'],
-                    'text': txt,
-                    'speaker': seg.get('speaker')
-                })
+            speaker = seg.get("speaker")
 
-        if not raw_segments:
-            return
+            # 1. translated text has priority
+            text = (
+                seg.get("translated_text")
+                or seg.get("text")
+                or ""
+            ).strip()
 
-        # 2. Smart Merging
-        merged = []
-        curr = raw_segments[0]
-        
-        for i in range(1, len(raw_segments)):
-            nxt = raw_segments[i]
-            gap = nxt['start'] - curr['end']
-            
-            # Merge conditions: small gap AND combined length fits reasonable limit
-            can_merge = gap <= self.max_gap and (len(curr['text']) + len(nxt['text'])) < (self.max_cpl * 1.8)
-            
-            if can_merge:
-                if curr['speaker'] != nxt['speaker']:
-                    # Dialogue: different speakers -> dashes
-                    curr['text'] = f"- {curr['text']}\n- {nxt['text']}"
-                else:
-                    # Same speaker -> join text
-                    curr['text'] = f"{curr['text']} {nxt['text']}"
-                curr['end'] = nxt['end']
+            if not text:
+                continue
+
+            start = float(seg["start"])
+            end = float(seg["end"])
+
+            sentences.append(
+                {
+                    "start": start,
+                    "end": end,
+                    "speaker": speaker,
+                    "text": self._clean_text(text),
+                }
+            )
+
+        return sentences
+
+    # ============================================================
+    # CUE BUILDING (SENTENCE-FIRST)
+    # ============================================================
+
+    def _sentences_to_cues(self, sentences):
+        cues = []
+        current = None
+
+        for s in sentences:
+            if current is None:
+                current = self._new_cue_from_sentence(s)
+                continue
+
+            gap = s["start"] - current["end"]
+
+            trial_sentences = current["sentences"] + [s]
+            trial_text = self._format_text(trial_sentences)
+            trial_duration = s["end"] - current["start"]
+
+            if (
+                gap > self.max_gap
+                or len(self._collect_speakers(trial_sentences)) > 2
+                or trial_duration > self.max_duration
+                or self._exceeds_layout(trial_text)
+            ):
+                cues.append(self._finalize_cue(current))
+                current = self._new_cue_from_sentence(s)
             else:
-                merged.append(curr)
-                curr = nxt
-        merged.append(curr)
+                current["sentences"].append(s)
+                current["end"] = s["end"]
 
-        # 3. Write to SRT
-        with open(output_path, "w", encoding="utf-8") as f:
-            for i, s in enumerate(merged, 1):
-                start = s['start']
-                end = s['end']
-                
-                # Minimum duration enforcement
-                if (end - start) < self.min_duration:
-                    end = start + self.min_duration
+        if current:
+            cues.append(self._finalize_cue(current))
 
-                formatted_text = self.wrap_text(s['text'])
-                
-                f.write(f"{i}\n{format_srt_time(start)} --> {format_srt_time(end)}\n{formatted_text}\n\n")
+        return cues
+
+    def _new_cue_from_sentence(self, s):
+        return {
+            "start": s["start"],
+            "end": s["end"],
+            "sentences": [s],
+        }
+
+    def _finalize_cue(self, cue):
+        text = self._format_text(cue["sentences"])
+        return {
+            "start": cue["start"],
+            "end": cue["end"],
+            "lines": text.split("\n"),
+        }
+
+    # ============================================================
+    # TEXT FORMATTING (SITCOM RULES)
+    # ============================================================
+
+    def _format_text(self, sentences):
+        if len(sentences) == 1:
+            return self._wrap_text(sentences[0]["text"])
+
+        s1, s2 = sentences[0], sentences[1]
+        l1 = self._wrap_text(s1["text"])
+        l2 = self._wrap_text(s2["text"])
+
+        if s1["speaker"] and s2["speaker"] and s1["speaker"] != s2["speaker"]:
+            return f"{l1}\n- {l2}"
+
+        return f"{l1}\n{l2}"
+
+    def _wrap_text(self, text):
+        words = text.split()
+        lines = []
+        current = ""
+
+        for w in words:
+            if not current:
+                current = w
+            elif len(current) + len(w) + 1 <= self.max_cpl:
+                current += " " + w
+            else:
+                lines.append(current)
+                current = w
+
+        if current:
+            lines.append(current)
+
+        return "\n".join(lines[: self.max_lines])
+
+    def _exceeds_layout(self, text):
+        lines = text.split("\n")
+        if len(lines) > self.max_lines:
+            return True
+        return any(len(l) > self.max_cpl for l in lines)
+
+    # ============================================================
+    # TIMING ENFORCEMENT (NO FLASHING)
+    # ============================================================
+
+    def _enforce_timing(self, cues):
+        for i, c in enumerate(cues):
+            duration = c["end"] - c["start"]
+
+            # minimum duration
+            if duration < self.min_duration:
+                c["end"] = c["start"] + self.min_duration
+
+            # CPS clamp (extend duration if needed)
+            text_len = sum(len(l) for l in c["lines"])
+            min_dur = text_len / self.max_cps
+            if (c["end"] - c["start"]) < min_dur:
+                c["end"] = c["start"] + min_dur
+
+            # prevent overlap
+            if i > 0 and cues[i - 1]["end"] > c["start"]:
+                cues[i - 1]["end"] = c["start"]
+
+        return cues
+
+    # ============================================================
+    # OUTPUT
+    # ============================================================
+
+    def _write_srt(self, path, cues, blacklist):
+        def ts(t):
+            ms = int((t % 1) * 1000)
+            s = int(t)
+            return f"{s//3600:02}:{(s%3600)//60:02}:{s%60:02},{ms:03}"
+
+        with open(path, "w", encoding="utf-8") as f:
+            idx = 1
+            for c in cues:
+                text = "\n".join(c["lines"])
+
+                if any(b.lower() in text.lower() for b in blacklist):
+                    continue
+
+                f.write(f"{idx}\n")
+                f.write(f"{ts(c['start'])} --> {ts(c['end'])}\n")
+                f.write(text + "\n\n")
+                idx += 1
+
+    # ============================================================
+    # UTILS
+    # ============================================================
+
+    def _collect_speakers(self, sentences):
+        return [s["speaker"] for s in sentences if s.get("speaker")]
+
+    def _clean_text(self, text):
+        text = re.sub(r"\s+([,.!?])", r"\1", text)
+        return re.sub(r"\s+", " ", text).strip()
