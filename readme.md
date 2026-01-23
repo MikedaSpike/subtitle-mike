@@ -4,63 +4,65 @@
 ![Docker Image Size](https://img.shields.io/docker/image-size/mikedaspike/subtitle-mike/latest?style=flat-square)
 ![GitHub License](https://img.shields.io/github/license/MikedaSpike/subtitle-mike?style=flat-square)
 ![GitHub last commit](https://img.shields.io/github/last-commit/MikedaSpike/subtitle-mike?style=flat-square)
+Subtitle Mike is a professional‑grade, AI‑powered transcription tool that converts video and audio files into clean, readable SRT subtitles.  
+It uses WhisperX for word‑level alignment and Pyannote for speaker identification, producing streaming‑ready results optimized for readability and timing accuracy.
 
-**Subtitle Mike** is a professional-grade, AI-powered transcription tool that converts video and audio files into perfectly formatted SRT subtitles. By leveraging **WhisperX** for word-level alignment and **Pyannote** for speaker identification, it delivers "streaming-ready" results optimized for readability.
-
-## Hardware & Performance
-
-This tool is built for speed and requires an **NVIDIA GPU**.
-
-* **Verified Hardware:** Optimized and tested on the **NVIDIA GeForce RTX 5080 (16GB VRAM)**.
-* **Technology:** Leverages CUDA 12.x and FP16 compute to process long-form content in minutes.
-* **Quiet Execution:** Custom filters suppress redundant library warnings (Pyannote/Torch) for clean, actionable logs.
-
-## Features
-
-* **Smart Formatting:**
-* **Balanced Lines:** Splits subtitles at natural pauses, avoiding "orphan words."
-* **Dialogue Handling:** Automatically adds dashes (`-`) when speaker changes are detected within a block.
-* **Streaming Standards:** Adheres to the 42 characters-per-line (CPL) standard (Netflix/BBC style).
-
-
-* **Batch Processing:** Handles single files or entire nested folder structures recursively.
-* **Efficient Skip Logic:** Automatically skips files that already have an existing subtitle to save time.
-* **Model Caching:** Supports local caching of AI models to prevent re-downloading on every run.
-* **Optional Translation:** Generate a second SRT file in your target language (e.g., Dutch) using LibreTranslate.
+The system is designed for creators, archivists, and automation workflows that require fast, accurate, and configurable subtitle generation.
 
 ---
 
-## Installation & Setup
+## Hardware & Performance
 
-### Prerequisites
+This tool requires an NVIDIA GPU.
+
+* Verified Hardware: NVIDIA GeForce RTX 5080 (16GB VRAM)  
+* Uses CUDA 12.x and FP16 compute  
+* Suppresses redundant library warnings for clean logs  
+
+---
+
+## Features
+
+* WhisperX transcription with alignment  
+* Optional Pyannote diarization  
+* Energy‑based segment clamping  
+* Genre‑based presets for VAD, ASR, and subtitle behavior  
+* Subtitle formatting with CPL/CPS limits  
+* Automatic dialogue dash insertion  
+* Recursive folder processing  
+* Skip logic for existing subtitles  
+* Local model caching  
+* Optional translation via LibreTranslate  
+* JSON import/export for manual segment editing  
+* Debug JSON output for every processing stage  
+* Clean logging with CLI override detection  
+* Model validation before loading  
+
+---
+
+# Installation & Setup
+
+## Prerequisites
 
 1. **Docker & Docker Compose**
 2. **NVIDIA Container Toolkit** installed on your host. This is required to bridge your physical GPU to the Docker container.
 3. **Hugging Face Account & Model Access:** This tool uses Pyannote for speaker diarization. You must accept the user conditions for the following models on Hugging Face (while logged in):
 * Accept terms for [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
 * Accept terms for [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
-
-
 4. **Hugging Face Token:** Create a Read-access token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
 
-### 1. Prepare Environment
+---
 
-Create a local folder structure for caching AI models and prepare your `.env` file:
+## Environment Setup
 
 ```bash
-# Create cache directories
 mkdir -p models/huggingface models/whisper models/torch
-
-# Create .env file and add your token
 echo "HF_TOKEN=your_huggingface_token_here" > .env
-
 ```
 
-### 2. Docker Compose (Recommended)
+---
 
-Using Docker Compose is the easiest way to manage volumes and environment variables.
-
-**Create a `docker-compose.yml` file:**
+## Docker Compose
 
 ```yaml
 services:
@@ -81,135 +83,245 @@ services:
       - PYTHONWARNINGS=ignore
     volumes:
       - /path/to/your/media/library:/data
-      # Cache AI models locally
       - ./models/huggingface:/root/.cache/huggingface
       - ./models/whisper:/root/.cache/whisper
       - ./models/torch:/root/.cache/torch
-
 ```
 
 ---
 
-## Optional: Automated Translation
+# Optional: Automated Translation
 
-Subtitle Mike supports automated translation into a second language using **LibreTranslate**.
+Subtitle Mike supports automated translation into a second language using LibreTranslate.
 
-### 1. Setup & Configuration
+### Configuration
 
-* **Use the translation example:** See `docker-compose.translate.example.yml`.
-* **Language configuration:** Set your target language in the `environment` section of the compose file:
 ```yaml
-- TRANSLATE_TO_LANG=nl  # Target language for translation
-
+- TRANSLATE_TO_LANG=nl
+- LT_LOAD_ONLY=en,nl
 ```
 
+### Translation CLI Arguments
 
-* **Engine configuration:** Ensure the `translator` service loads your required languages (e.g., `LT_LOAD_ONLY=en,nl`).
-
-### 2. Translation CLI Arguments
-
-When translation is enabled, you can use the following additional arguments:
-
-| Argument | Type | Default | Description |
-| --- | --- | --- | --- |
-| `--translate` | Flag | `False` | **Required** to enable translation. Generates a second SRT. |
-| `--translator_url` | URL | `http://translator:5000` | The endpoint of your LibreTranslate instance. |
+| Argument | Default | Description |
+|----------|----------|-------------|
+| `--translate` | False | Enables translation and generates a second SRT |
+| `--translator_url` | http://translator:5000 | LibreTranslate endpoint |
 
 ---
 
-## 3. Usage Examples
+# Usage Examples
 
-**Process a single file:**
+### Process a single file
 
 ```bash
 docker compose run --rm subtitle-mike python main.py --input "/data/MyVideo.mp4"
-
 ```
 
-**Process a single file + Translate:**
+### Process a folder recursively
 
 ```bash
-# This generates both MyVideo.en.srt and MyVideo.nl.srt
+docker compose run --rm subtitle-mike python main.py --input "/data/Shows" --recursive
+```
+
+### Process and translate
+
+```bash
 docker compose run --rm subtitle-mike python main.py --input "/data/MyVideo.mp4" --translate
-
-```
-
-**Process an entire folder recursively with translation:**
-
-```bash
-docker compose run --rm subtitle-mike python main.py --input "/data/TV_Shows" --recursive --translate
-
 ```
 
 ---
 
-## Configuration & CLI Arguments
+# Configuration & CLI Arguments
 
-### Basic Usage
+Below is the complete and updated list of CLI options supported by the current pipeline.
 
-The only mandatory argument is `--input`.
-
-| Argument | Type | Default | Status | Description |
-| --- | --- | --- | --- | --- |
-| `--input` | Path | - | **Required** | Path to the file or directory inside the container. |
-| `--output_dir` | Path | `None` | Optional | Where to save SRTs. Defaults to the input folder. |
-| `--recursive` | Flag | `False` | Optional | Scan all subdirectories for media files. |
-| `--overwrite` | Flag | `False` | Optional | Re-process and replace existing `.srt` files. |
-| `--lang` | String | `en` | Optional | Audio language code (en, nl, de, fr, etc.). |
-| `--model` | String | `large-v3` | Optional | Whisper model size (see Model section). |
-
-### Advanced Tuning
+## Basic Usage
 
 | Argument | Default | Description |
-| --- | --- | --- |
-| `--initial_prompt` | `""` | Provide context or specific names to improve AI accuracy. |
-| `--blacklist` | `¶¶,...` | Comma-separated list of phrases to automatically remove. |
-| `--beam` | `1` | Beam size. Higher is more precise but significantly slower. |
-| `--onset` | `0.02` | VAD sensitivity. Adjust if speech detection is too aggressive. |
-| `--max_cpl` | `42` | Maximum characters per line (Netflix/BBC standard). |
-| `--min_duration` | `1.0` | Minimum display time for a subtitle block (seconds). |
-| `--max_gap` | `0.5` | Merge threshold: joins segments if the gap is smaller than this. |
-| `--debug` | `False` | Saves a `.debug.json` with raw timestamps and speaker scores. |
+|----------|----------|-------------|
+| `--input` | Required | File or directory to process |
+| `--output_dir` | None | Custom output directory |
+| `--recursive` | False | Scan subdirectories |
+| `--overwrite` | False | Replace existing SRT files |
+| `--genre` | sitcom | Selects a preset profile (see Genre Profiles) |
+| `--model` | large‑v3 | Whisper model name (validated before loading) |
+| `--lang` | en | Language code |
+| `--initial_prompt` | "" | Optional prompt for Whisper |
+| `--translate` | False | Generate translated SRT |
+| `--debug` | False | Save debug JSON files |
+| `--dump_json` | False | Export processed segments to JSON |
+| `--from_json` | False | Load segments from JSON instead of audio |
+| `--blacklist` | "" | Comma‑separated list of phrases to remove |
 
 ---
 
-## Understanding Whisper Models
+# Genre Profiles
 
-Subtitle Mike supports all OpenAI Whisper model sizes. For **NVIDIA RTX 5080** users, `large-v3` is the highly recommended default.
+Subtitle Mike includes a set of genre presets that automatically configure:
 
-| Model | Parameters | VRAM Required | Accuracy | Recommendation |
-| --- | --- | --- | --- | --- |
-| **tiny** | 39 M | ~1 GB | Lowest | Only for very low-end hardware. |
-| **base** | 74 M | ~1 GB | Low | Fast, but struggles with accents. |
-| **small** | 244 M | ~2 GB | Moderate | Good balance for older GPUs. |
-| **medium** | 769 M | ~5 GB | High | Great results, slightly faster than large. |
-| **large-v3** | 1550 M | ~10 GB | **Highest** | **Default.** Best for RTX 30/40/50-series. |
+- VAD sensitivity  
+- ASR beam size and no‑speech threshold  
+- Subtitle timing rules  
+- CPS/CPL limits  
+- Duration constraints  
+- Gap merging behavior  
+- Semantic break preferences  
+
+Available genres:
+
+```
+sitcom
+drama
+netflix
+film
+talkshow
+podcast
+music
+documentary
+youtube
+asmr
+action
+```
+
+Each genre defines:
+
+### 1. Profile  
+Determines base subtitle rules (CPL, CPS, durations).  
+Profiles:  
+- BroadcastProfile  
+- NetflixProfile  
+
+### 2. VAD Settings  
+Includes:  
+- threshold  
+- min_silence_duration_ms  
+- speech_pad_ms  
+- vad_onset  
+- vad_offset  
+
+### 3. ASR Settings  
+Includes:  
+- beam_size  
+- no_speech_threshold  
+
+### 4. Subtitle Overrides  
+May include:  
+- max_gap  
+- min_duration  
+- max_duration  
+- prefer_semantic_breaks  
+- allow_sentence_merge  
+- max_cps  
+
+### Important: CLI overrides always take priority  
+Any genre‑defined value can be overridden using:
+
+```
+--beam
+--no_speech
+--vad_onset
+--vad_offset
+--vad_threshold
+--vad_min_silence_ms
+--vad_speech_pad_ms
+--max_cpl
+--max_lines
+--min_segment_duration
+--max_segment_duration
+--min_cps
+--max_cps
+--max_gap
+```
 
 ---
 
-## Supported Extensions
+# Subtitle Parameters (Overrides)
 
-* **Video:** `.mp4`, `.mkv`, `.avi`, `.mov`
-* **Audio:** `.wav`, `.mp3`
-
----
-
-## Support & Contributions
-
-This project is primarily maintained for personal use and is shared "as-is." Due to time constraints, the **Issues** section is disabled.
-
-However, contributions from the community are welcome! If you encounter a bug or have an improvement in mind:
-
-1. **Fork** the repository.
-2. Implement your fix or feature.
-3. Submit a **Pull Request** (PR).
-
-I will review PRs when time permits. Thank you for understanding!
+| Flag | Description |
+|------|-------------|
+| `--max_cpl` | Max characters per line |
+| `--max_lines` | Max lines per subtitle block |
+| `--min_segment_duration` | Minimum segment duration |
+| `--max_segment_duration` | Maximum segment duration |
+| `--min_cps` | Minimum characters per second |
+| `--max_cps` | Maximum characters per second |
+| `--max_gap` | Merge gap threshold |
 
 ---
 
-## License
+# ASR Parameters (Overrides)
+
+| Flag | Description |
+|------|-------------|
+| `--beam` | Beam size |
+| `--no_speech` | No‑speech threshold |
+
+---
+
+# VAD Parameters (Overrides)
+
+| Flag | Description |
+|------|-------------|
+| `--vad_onset` | Speech onset sensitivity |
+| `--vad_offset` | Speech offset sensitivity |
+| `--vad_threshold` | VAD threshold |
+| `--vad_min_silence_ms` | Minimum silence duration |
+| `--vad_speech_pad_ms` | Padding around speech |
+
+---
+
+# JSON Import/Export
+
+Subtitle Mike supports exporting and re‑using transcription data through two options:
+
+### `--dump_json`
+Exports all processed segments (timestamps, text, speakers, word‑timing, clamped segments, etc.) to:
+
+```
+<file>.<lang>.segments.json
+```
+
+### `--from_json`
+Loads the previously exported JSON instead of processing audio.  
+Useful when:
+
+- subtitles need manual correction  
+- you want to test different subtitle settings  
+- you want to regenerate subtitles without re‑transcribing  
+- you want to run translation without GPU load  
+
+Workflow:
+
+1. Run once with `--dump_json`  
+2. Edit the JSON if needed  
+3. Rebuild subtitles with `--from_json`  
+
+---
+
+# Supported Extensions
+
+* Video: `.mp4`, `.mkv`, `.avi`, `.mov`  
+* Audio: `.wav`, `.mp3`  
+
+---
+
+# Support & Contributions
+
+This project is maintained for personal use and shared as‑is.  
+Issues are disabled, but pull requests are welcome.
+
+Steps:
+
+1. Fork  
+2. Implement  
+3. Submit PR  
+
+---
+
+# License
 
 [MIT](https://choosealicense.com/licenses/mit/)
 
 ---
+
