@@ -183,8 +183,8 @@ def main():
     # Subtitle overrides
     ap.add_argument("--max_cpl", type=int)
     ap.add_argument("--max_lines", type=int)
-    ap.add_argument("--min_segment_duration", type=float)
-    ap.add_argument("--max_segment_duration", type=float)
+    ap.add_argument("--min_duration", type=float)
+    ap.add_argument("--max_duration", type=float)
     ap.add_argument("--min_cps", type=float)
     ap.add_argument("--max_cps", type=float)
     ap.add_argument("--max_gap", type=float)
@@ -230,22 +230,40 @@ def main():
     if args.vad_speech_pad_ms is not None:
        vad["speech_pad_ms"] = args.vad_speech_pad_ms
 
+    # Initiliaze subtitle paramaters
     subtitle_params = {
-       "max_cpl": args.max_cpl or profile.max_cpl,
-       "max_lines": args.max_lines or profile.max_lines,
-       "min_duration": args.min_segment_duration or profile.min_duration,
-       "max_duration": args.max_segment_duration or profile.max_duration,
-       "min_cps": args.min_cps or profile.min_cps,
-       "max_cps": args.max_cps or profile.max_cps,
-       "max_gap": args.max_gap or profile.max_gap,
+        "max_cpl": profile.max_cpl,
+        "max_lines": profile.max_lines,
+        "min_duration": profile.min_duration,
+        "max_duration": profile.max_duration,
+        "min_cps": profile.min_cps,
+        "max_cps": profile.max_cps,
+        "max_gap": profile.max_gap,
     }
 
+    #Set defaults
     if "subtitle" in genre_cfg:
         for key, value in genre_cfg["subtitle"].items():
             subtitle_params[key] = value
 
+    # Apply Subtitles overrides 
+    if args.max_cpl is not None:
+        subtitle_params["max_cpl"] = args.max_cpl
+    if args.max_lines is not None:
+        subtitle_params["max_lines"] = args.max_lines 
+    if args.min_duration is not None:
+        subtitle_params["min_duration"] = args.min_duration
+    if args.max_duration is not None:
+        subtitle_params["max_duration"] = args.max_duration
+    if args.min_cps is not None:
+        subtitle_params["min_cps"] = args.min_cps
+    if args.max_cps is not None:
+        subtitle_params["max_cps"] = args.max_cps
+    if args.max_gap is not None:
+        subtitle_params["max_gap"] = args.max_gap
+    
     # ------------------------------------------------------------
-    # BUILD TRANSCRIBE PARAMS (NEW)
+    # BUILD TRANSCRIBE PARAMS
     # ------------------------------------------------------------
 
     transcribe_params = {
@@ -258,8 +276,6 @@ def main():
     alignment_params = {
         **vad
     }
-
-
 
     # ------------------------------------------------------------
     # LOG EFFECTIVE CONFIG
@@ -376,8 +392,9 @@ def main():
                     result = json.load(f)
 
             else:
-                logger.info("  -> Starting Transcribing")
+                logger.info(f"  -> Loading audio into memory: {media.name}")
                 audio = whisperx.load_audio(str(media))
+                logger.info("  -> Starting Transcribing")
                 with suppress_output():
                     result = model.transcribe(audio, batch_size=16)
                 logger.info("  -> Finished Transcribing")
@@ -396,6 +413,7 @@ def main():
                         meta,
                         audio,
                         "cuda",
+                        return_char_alignments=False
                     )
                 logger.info("  -> Finished Aligning")
                 if args.debug:
@@ -454,7 +472,7 @@ def main():
 
             logger.info("  -> Generating subtitles")
             segments_copy = copy.deepcopy(result["segments"])
-            SubtitleEngine(
+            engine = SubtitleEngine(
                 segments=segments_copy,
                 max_cpl=subtitle_params["max_cpl"],
                 max_lines=subtitle_params["max_lines"],
@@ -463,8 +481,19 @@ def main():
                 min_cps=subtitle_params["min_cps"],
                 max_cps=subtitle_params["max_cps"],
                 max_gap=subtitle_params["max_gap"],
-            ).process_and_save(srt_path, blacklist)
+            )
 
+            logger.info("  -> Starting Software Timing Alignment (CPS based)")
+            aligned_list = engine.align_timings_heuristically()
+            
+            engine.segments = aligned_list
+            result["segments"] = aligned_list
+
+            if args.debug:
+                save_debug_json(srt_path, {"segments": aligned_list}, "soft_aligned")
+
+            engine.process_and_save(srt_path, blacklist)
+            logger.info(f"  -> Subtitles saved: {srt_path.name}")
             if args.debug:
                 save_debug_json(
                     srt_path,
@@ -502,7 +531,7 @@ def main():
                             max_cps=subtitle_params["max_cps"],
                             max_gap=subtitle_params["max_gap"],
                         ).process_and_save(translated_path, blacklist)
-
+                        logger.info(f"  -> Translated subtitles saved: {translated_path.name}")
                         translated += 1
 
                 except Exception as e:
