@@ -93,21 +93,46 @@ services:
 
 # Optional: Automated Translation
 
-Subtitle Mike supports automated translation into a second language using LibreTranslate.
+Subtitle Mike supports automated translation using either **LibreTranslate** (fast, local) or an **LLM** (Ollama/Llama 3.1) for high-quality, context-aware results.
 
-### Configuration
+### Configuration: LibreTranslate
+Add these to your environment variables in your `docker-compose.yml` or `.env` file to use the local translation engine:
 
 ```yaml
-- TRANSLATE_TO_LANG=nl
-- LT_LOAD_ONLY=en,nl
+environment:
+  - TRANSLATE_TO_LANG=nl
+  - LT_LOAD_ONLY=en,nl
+
 ```
 
+### Configuration: LLM (Ollama)
+
+Use these settings for high-quality, context-aware translations via Ollama:
+
+```yaml
+environment:
+  - TRANSLATE_TO_LANG=nl
+  - LLM_URL=http://ollama-subtitle:11434
+  - LLM_MODEL=llama3.1
+
+```
+
+### Deployment Examples
+
+Choose the configuration that fits your workflow by using one of our example files:
+
+* **[Standard / LibreTranslate](docker-compose.translate_libre.example.yml)** – Fast, local translation using dedicated models.
+* **[High-Quality / LLM](docker-compose.translate_LLM.example.yml)** – Advanced, context-aware translation using Ollama.
+
 ### Translation CLI Arguments
+You can switch between strategies using the `--translator` flag.
 
 | Argument | Default | Description |
 |----------|----------|-------------|
 | `--translate` | False | Enables translation and generates a second SRT |
 | `--translator_url` | http://translator:5000 | LibreTranslate endpoint |
+| `--llm_url` | http://localhost:11434 | Ollama API endpoint (for `llm` strategy) |
+| `--llm_prompt` | None | Specific instructions for the LLM (e.g. 'Medical drama context') |
 
 ---
 
