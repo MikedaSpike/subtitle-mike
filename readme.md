@@ -1,4 +1,4 @@
-# Subtitle Mike (Transcribe & Optional Translation)
+# Subtitle Mike: AI-Powered Transcribe & Contextual Translation
 
 ![Docker Pulls](https://img.shields.io/docker/pulls/mikedaspike/subtitle-mike?style=flat-square&color=blue)
 ![Docker Image Size](https://img.shields.io/docker/image-size/mikedaspike/subtitle-mike/latest?style=flat-square)
@@ -8,7 +8,10 @@
 Subtitle Mike is a professional‑grade, AI‑powered transcription tool that converts video and audio files into clean, readable SRT subtitles.  
 It uses WhisperX for word‑level alignment and Pyannote for speaker identification, producing streaming‑ready results optimized for readability and timing accuracy.
 
-The system is designed for creators, archivists, and automation workflows that require fast, accurate, and configurable subtitle generation.
+The system offers a flexible translation engine, allowing users to optionally translate subtitles into multiple languages. You can choose between LibreTranslate for fast, reliable processing or leverage Ollama LLM (e.g., Mistral-Nemo) for high-quality, context-aware translations that capture nuances, idioms, and natural sentence flow better than standard engines.
+
+
+​Designed for creators, archivists, and automation workflows, Subtitle Mike bridges the gap between raw AI transcription and polished, multi-language subtitle delivery.
 
 ---
 
