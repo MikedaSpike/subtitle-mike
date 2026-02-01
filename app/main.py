@@ -195,6 +195,11 @@ def main():
     ap.add_argument("--vad_threshold", type=float)
     ap.add_argument("--vad_min_silence_ms", type=int)
     ap.add_argument("--vad_speech_pad_ms", type=int)
+    
+    #LLM (optional)
+    ap.add_argument("--translator", choices=["libre", "llm"], default="libre", help="Kies de vertaalmachine")
+    ap.add_argument("--llm_url", default=os.getenv("LLM_URL", "http://ollama:11434"), help="URL voor de LLM service")
+    ap.add_argument("--llm_prompt", type=str, default=None, help="Additional context for the LLM.")
 
     args = ap.parse_args()
 
@@ -309,6 +314,16 @@ def main():
     for k, v in subtitle_params.items():
        logger.info(f"  - {k:25}: {v}")
 
+    if args.translate:
+        logger.info("Effective translator parameters:")
+        target_lang = os.getenv("TRANSLATE_TO_LANG", "nl")
+        logger.info(f"  - strategy                 : {args.translator}")
+        logger.info(f"  - target_language          : {target_lang}")
+        if args.translator == "llm":
+            logger.info(f"  - llm_url                  : {args.llm_url}")
+            logger.info(f"  - llm_prompt               : {args.llm_prompt}")
+        else:
+            logger.info(f"  - libre_url                : {os.getenv('LIBRETRANSLATE_URL', 'http://translator:5000')}")
 
     # ---------------------------------------------------------------------
     # FILES
@@ -506,33 +521,45 @@ def main():
             # ---------------------------------------------------------
 
             if args.translate:
-                logger.info("  -> Translating subtitles")
-
+                logger.info(f"  -> Translating subtitles {args.translator}...")
+                detected_source_lang = result.get("language", args.lang)
+                
                 try:
-                    translator = SubtitleTranslator()
-                    translated_segments = translator.translate_segments(
-                        copy.deepcopy(result["segments"])
+                    translator = SubtitleTranslator(
+                                strategy=args.translator, 
+                                url=args.llm_url if args.translator == "llm" else None,
+                                source_lang=detected_source_lang,
+                                context=args.llm_prompt,
+                                target_lang=os.getenv("TRANSLATE_TO_LANG", "nl")
                     )
                     
-                    if translated_segments is None:
-                        logger.warning("  -> Translation failed, skipping writing translated SRT")
+                    if translator.source_lang == translator.target_lang:
+                        logger.warning(f"  -> Source and Target language are both '{translator.source_lang}'. Skipping translation.")
                     else:
-                        translated_path = srt_path.with_name(
-                            f"{media.stem}.{translator.target_lang}.srt"
+                        logger.info(f"  -> Translating: {translator.source_lang.upper()} -> {translator.target_lang.upper()}")
+                        translated_segments = translator.translate_segments(
+                            copy.deepcopy(result["segments"])
                         )
 
-                        SubtitleEngine(
-                            segments=translated_segments,
-                            max_cpl=subtitle_params["max_cpl"],
-                            max_lines=subtitle_params["max_lines"],
-                            min_duration=subtitle_params["min_duration"],
-                            max_duration=subtitle_params["max_duration"],
-                            min_cps=subtitle_params["min_cps"],
-                            max_cps=subtitle_params["max_cps"],
-                            max_gap=subtitle_params["max_gap"],
-                        ).process_and_save(translated_path, blacklist)
-                        logger.info(f"  -> Translated subtitles saved: {translated_path.name}")
-                        translated += 1
+                        if translated_segments is None:
+                            logger.warning("  -> Translation failed, skipping writing translated SRT")
+                        else:
+                            translated_path = srt_path.with_name(
+                                f"{media.stem}.{translator.target_lang}.srt"
+                            )
+
+                            SubtitleEngine(
+                                segments=translated_segments,
+                                max_cpl=subtitle_params["max_cpl"],
+                                max_lines=subtitle_params["max_lines"],
+                                min_duration=subtitle_params["min_duration"],
+                                max_duration=subtitle_params["max_duration"],
+                                min_cps=subtitle_params["min_cps"],
+                                max_cps=subtitle_params["max_cps"],
+                                max_gap=subtitle_params["max_gap"],
+                            ).process_and_save(translated_path, blacklist)
+                            logger.info(f"  -> Translated subtitles saved: {translated_path.name}")
+                            translated += 1
 
                 except Exception as e:
                     logger.error(f"  -> Translation failed: {e}")
