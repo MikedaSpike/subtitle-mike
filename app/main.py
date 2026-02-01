@@ -308,8 +308,6 @@ def main():
         else:
             logger.info("  - enabled                 : no (HF_TOKEN not set)")
 
-
-
     logger.info("Effective subtitle parameters:")
     for k, v in subtitle_params.items():
        logger.info(f"  - {k:25}: {v}")
@@ -320,6 +318,8 @@ def main():
         logger.info(f"  - strategy                 : {args.translator}")
         logger.info(f"  - target_language          : {target_lang}")
         if args.translator == "llm":
+            model_used = os.getenv("LLM_MODEL", "llama3.1")
+            logger.info(f"  - llm_model                : {model_used}")
             logger.info(f"  - llm_url                  : {args.llm_url}")
             logger.info(f"  - llm_prompt               : {args.llm_prompt}")
         else:
