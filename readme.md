@@ -355,4 +355,14 @@ Steps:
 [MIT](https://choosealicense.com/licenses/mit/)
 
 ---
+### Support my projects
+  
+Do you find my work for Pinball or my other projects useful? A coffee (or a pinball part) is always greatly appreciated!
+
+<a href="https://www.buymeacoffee.com/q5dlxoaayq">
+  <img src="https://github.com/user-attachments/assets/7706668e-0808-4e3e-b555-8723fb97dae9" alt="Buy Me a Pinball" width="160" />
+</a>
+
+
+---
 
